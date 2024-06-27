@@ -19,7 +19,6 @@ import io.realm.kotlin.RealmConfiguration
 import io.realm.kotlin.ext.query
 import io.realm.kotlin.notifications.InitialResults
 import io.realm.kotlin.notifications.UpdatedResults
-import io.realm.kotlin.where
 import io.realm.kotlin.query.Sort
 import jp.techacademy.yuu.funakoshi.taskapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
@@ -164,26 +163,32 @@ class MainActivity : AppCompatActivity() {
         binding.search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextChange(newText: String): Boolean {
                 filterTasks(newText)
+                Log.d("Kotlin","1文字打った/消した")
                 return true
             }
             override fun onQueryTextSubmit(query: String): Boolean {
-                return false
+                filterTasks(query)
+                Log.d("Kotlin","検索ボタン")
+                return true
             }
         })
     }
-
     private fun filterTasks(query: String) {
         // Realm でのクエリ作成
-        val realmQuery = if (query.isEmpty()) {
-            realm.where<Task>()
+        if (query.isEmpty()) {
+            val search = realm.query<Task>().sort("date", Sort.DESCENDING).find()
+            CoroutineScope(Dispatchers.Default).launch {
+                search.asFlow().collect {
+                    reloadListView(it.list)
+                }
+            }
         } else {
-            realm.where<Task>().equalTo("category", query)
-        }
-
-        // ソートを適用して、結果を取得
-        val tasks = realmQuery.sort("date", Sort.DESCENDING).findAll()
-        CoroutineScope(Dispatchers.Default).launch {
-            reloadListView(tasks)
+            val search = realm.query<Task>("category=$0",query).find()
+            CoroutineScope(Dispatchers.Default).launch {
+                search.asFlow().collect {
+                    reloadListView(it.list)
+                }
+            }
         }
     }
 
